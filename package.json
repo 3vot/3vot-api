@@ -1,4 +1,7 @@
 {
+  "engines": {
+    "node": "0.10.x"
+  },
   "name": "application-name",
   "version": "0.0.1",
   "private": true,
@@ -7,9 +10,20 @@
   },
   "dependencies": {
     "express": "3.3.1",
-    "jade": "*",
-    "pg": "~2.11.1",
     "pg.js": "~2.11.1",
-    "q": "~1.0.0"
-  }
+    "q": "~1.0.0",
+    "supertest": "~0.9.0",
+    "should": "~3.1.2",
+    "mygrate": "~0.2.0-pre",
+    "knex": "~0.5.7",
+    "pg-objects": "0.0.2",
+    "3vot-db": "0.0.1",
+    "browserify": "~3.31.2",
+    "coffeeify": "~0.6.0"
+  },
+  "description": "ERROR: No README data found!",
+  "main": "app.js",
+  "devDependencies": {},
+  "author": "",
+  "license": "BSD"
 }

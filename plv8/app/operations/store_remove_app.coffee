@@ -4,13 +4,14 @@ log = require('3vot-db/logger').getLogger('store_remove_app_operation');
 
 execute= ( store ) ->
   store.profile_id = checkKeyAndFind(store);
-  store.appToRemove = findStoreByNameAndProfile(store);
+  store.appToRemove = findAppByNameAndProfile(store);
   store = updateStore(store);
   return store;
 
-findStoreByNameAndProfile= (store) ->
+findAppByNameAndProfile= (store) ->
   query = "select id from apps where name = $1 and profile_id = $2"
   app = plv8.__executeRow query, [ store.app, store.profile_id]
+  throw "App not Found for name #{store.app} and profile #{store.user_name}" if !app
   return app;
 
 module.exports = execute;

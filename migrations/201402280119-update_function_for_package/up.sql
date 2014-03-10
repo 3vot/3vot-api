@@ -2209,13 +2209,14 @@ module.exports=require(16)
 },{"./support/isBuffer":19,"/Users/roberto/proyectos/3vot/3vot-api/node_modules/browserify/node_modules/insert-module-globals/node_modules/process/browser.js":18,"inherits":17}],21:[function(require,module,exports){
 var create, query;
 
-query = "INSERT INTO apps (name, profile_id, version,version_details, marketing, sales, billing, events) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id";
+query = "INSERT INTO apps (name, profile_id, version,version_details, marketing, sales, billing, events) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, version";
 
 create = function(app) {
   var sqlResponse;
   sqlResponse = plv8.__execute(query, [app.name, app.profile_id, 1, app.version_details, app.marketing, app.sales, app.billing, app.events]);
   app.version = 1;
   app.id = sqlResponse[0].id;
+  app.version = sqlResponse[0].id;
   return app;
 };
 
@@ -2227,11 +2228,12 @@ module.exports.query = query;
 },{}],22:[function(require,module,exports){
 var query, update;
 
-query = "UPDATE apps set version= version + 1, version_details= $1, marketing= $2, sales= $3, billing= $4, events= $5 where name = $6 returning version";
+query = "UPDATE apps set version= version + 1, version_details= $1, marketing= $2, sales= $3, billing= $4, events= $5 where name = $6 returning id, version";
 
 update = function(app) {
   var sqlResponse;
   sqlResponse = plv8.__execute(query, [app.version_details, app.marketing, app.sales, app.billing, app.events, app.name]);
+  app.id = sqlResponse[0].id;
   app.version = sqlResponse[0].version;
   return app;
 };
@@ -2421,7 +2423,7 @@ query = " DELETE from stores where name = $1 and profile_id = $2";
 
 destroy = function(store) {
   var sqlResponse;
-  sqlResponse = plv8.__execute(query, [store.user_name, store.profile_id]);
+  sqlResponse = plv8.__execute(query, [store.name, store.profile_id]);
   if (sqlResponse !== 1) {
     throw "Could not delete store because it was not found";
   }
@@ -2508,7 +2510,6 @@ module.exports = function(request){
   else if( request.params.object == "apps" && request.params.operation == "create" ) operation = createApp
   else if( request.params.object == "stores" && request.params.operation == "create" ) operation = createStore
   else if( request.params.object == "stores" && request.params.operation == "delete" ) operation = deleteStore
-
   else{
     throw "Rest Controller could not find what operation to execute " + request.params;
   }
@@ -2697,11 +2698,8 @@ module.exports = execute;
 var select;
 
 select = function(request) {
-  var fields, where;
   console.log(request);
-  fields = ["*"] || request.fields;
-  where = "" || request.where;
-  return plv8.execute("select " + (fields.join(",")) + " from " + request.object + " " + where);
+  return plv8.__execute(request.select, request.values);
 };
 
 module.exports = select;
@@ -2788,7 +2786,7 @@ module.exports = execute;
 
 
 },{"../commands/profile_create_command":26,"3vot-db/logger":3}],38:[function(require,module,exports){
-var checkKeyAndFind, execute, findStoreByNameAndProfile, log, updateStore;
+var checkKeyAndFind, execute, findAppByNameAndProfile, log, updateStore;
 
 updateStore = require('../commands/store_update_command');
 
@@ -2798,15 +2796,18 @@ log = require('3vot-db/logger').getLogger('store_add_app_operation');
 
 execute = function(store) {
   store.profile_id = checkKeyAndFind(store);
-  store.appToAdd = findStoreByNameAndProfile(store);
+  store.appToAdd = findAppByNameAndProfile(store);
   store = updateStore(store);
   return store;
 };
 
-findStoreByNameAndProfile = function(store) {
+findAppByNameAndProfile = function(store) {
   var app, query;
   query = "select id from apps where name = $1 and profile_id = $2";
   app = plv8.__executeRow(query, [store.app, store.profile_id]);
+  if (!app) {
+    throw "App not Found for name " + store.app + " and profile " + store.user_name;
+  }
   return app;
 };
 
@@ -2838,7 +2839,7 @@ deleteStore = require('../commands/store_delete_command');
 
 checkKeyAndFind = require('../commands/profile_check_key_and_find_command');
 
-log = require('3vot-db/logger').getLogger('store_create_operation');
+log = require('3vot-db/logger').getLogger('store_delete_operation');
 
 execute = function(store) {
   store.profile_id = checkKeyAndFind(store);
@@ -2850,7 +2851,7 @@ module.exports = execute;
 
 
 },{"../commands/profile_check_key_and_find_command":25,"../commands/store_delete_command":28,"3vot-db/logger":3}],41:[function(require,module,exports){
-var checkKeyAndFind, execute, findStoreByNameAndProfile, log, updateStore;
+var checkKeyAndFind, execute, findAppByNameAndProfile, log, updateStore;
 
 updateStore = require('../commands/store_update_command');
 
@@ -2860,15 +2861,18 @@ log = require('3vot-db/logger').getLogger('store_remove_app_operation');
 
 execute = function(store) {
   store.profile_id = checkKeyAndFind(store);
-  store.appToRemove = findStoreByNameAndProfile(store);
+  store.appToRemove = findAppByNameAndProfile(store);
   store = updateStore(store);
   return store;
 };
 
-findStoreByNameAndProfile = function(store) {
+findAppByNameAndProfile = function(store) {
   var app, query;
   query = "select id from apps where name = $1 and profile_id = $2";
   app = plv8.__executeRow(query, [store.app, store.profile_id]);
+  if (!app) {
+    throw "App not Found for name " + store.app + " and profile " + store.user_name;
+  }
   return app;
 };
 
@@ -2924,7 +2928,9 @@ console = require('3vot-db/console');
 App = require('./app');
 
 
-},{"./app":33,"3vot-db/console":2,"3vot-db/plv8-fill":11}],"kQ629X":[function(require,module,exports){
+},{"./app":33,"3vot-db/console":2,"3vot-db/plv8-fill":11}],"./test":[function(require,module,exports){
+module.exports=require('kQ629X');
+},{}],"kQ629X":[function(require,module,exports){
 var spec = require('3vot-db/microspec');
 spec.options({
   sourceLineOffset: 7,
@@ -2937,9 +2943,7 @@ exports.run = function() {
   spec.run();
 };
 
-},{"./profileSpec":48,"3vot-db/microspec":4}],"./test":[function(require,module,exports){
-module.exports=require('kQ629X');
-},{}],"./test/microspec":[function(require,module,exports){
+},{"./profileSpec":48,"3vot-db/microspec":4}],"./test/microspec":[function(require,module,exports){
 module.exports=require('Zv8T+a');
 },{}],"Zv8T+a":[function(require,module,exports){
 module.exports = require('3vot-db/microspec');

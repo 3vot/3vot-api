@@ -1,3 +1,7 @@
+
+if(!process.env.POSTGRES_URL) process.env.POSTGRES_URL = "postgres://roberto@localhost/vot_api_dev";
+
+
 var express = require('express')
 var app = express();
 var routes = require('./routes')
@@ -29,8 +33,7 @@ app.post( options.route + "/business/:operation", pgConnect ,function(req, res) 
     });
 });
 
-app.get( options.route + "/:object/:named", pgConnect ,function(req, res, next) {
-  return next() if parseInt(req.params.named) > 0
+app.get( options.route + "/:object/views/:named", pgConnect ,function(req, res, next) {
   var request = { "params": { "object": req.params.object, "operation": req.params.named }, "body": req.query }
   var query = "SELECT controller('SELECT_CONTROLLER', '" + JSON.stringify(request) + "');";
   req.db.client.query( query ,
@@ -42,10 +45,9 @@ app.get( options.route + "/:object/:named", pgConnect ,function(req, res, next) 
     });
 });
 
-app.post( options.route + "/:object/:named", pgConnect ,function(req, res, next) {
-  return next() if parseInt(req.params.named) > 0
-  var request = { "params": { "object": req.params.object, "operation": req.params.named }, "body": req.query }
-  var query = "SELECT controller('ACTION_CONTROLLER', '" + JSON.stringify(request) + "');";
+app.post( options.route + "/:object/actions/:named", pgConnect ,function(req, res, next) {
+  var request = { "params": { "object": req.params.object, "operation": req.params.named }, "body": req.body }
+  var query = "SELECT controller('BUSINESS_CONTROLLER', '" + JSON.stringify(request) + "');";
   req.db.client.query( query ,
     function(err, result) {
       if(err) return res.send(500, err);
@@ -60,6 +62,18 @@ app.get( options.route + "/:object/:id", pgConnect ,function(req, res) {
     if(err) return res.send(500, 'error running query ' + err);
      res.send(result.row);
    });
+});
+
+app.get( options.route + "/:object", pgConnect ,function(req, res) {
+  var request = { "params": { "object": req.params.object, "operation": "select" }, "body": req.query  }
+  var query = "SELECT controller('SELECT_CONTROLLER', '" + JSON.stringify(request) + "');";
+  req.db.client.query( query ,
+    function(err, result) {
+      if(err) return res.send(500, err);
+      if(!result.rows || result.rows.length == 0) return res.send(500, "Unexpected Error, no response from Database")
+      if(result.rows[0].controller.success != true) return res.send(404, result.rows[0].controller )
+      res.send( result.rows[0].controller.response);
+    });
 });
 
 app.post( options.route + "/:object", pgConnect ,function(req, res) {
@@ -87,7 +101,8 @@ app.put( options.route + "/:object", pgConnect ,function(req, res) {
 });
 
 app.delete( options.route + "/:object", pgConnect ,function(req, res) {
-  var request = { "params": { "object": req.params.object, "operation": "delete" }, "body": req.body  }
+  console.log(req.query)
+  var request = { "params": { "object": req.params.object, "operation": "delete" }, "body": req.query  }
   var query = "SELECT controller('REST_CONTROLLER', '" + JSON.stringify(request) + "');";
   req.db.client.query( query ,
     function(err, result) {

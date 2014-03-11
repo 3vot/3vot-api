@@ -1,6 +1,4 @@
-
-if(!process.env.POSTGRES_URL) process.env.POSTGRES_URL = "postgres://roberto@localhost/vot_api_dev";
-
+process.env.POSTGRES_URL = process.env.POSTGRES_URL || "postgres://roberto@localhost/vot_api_dev";
 
 var express = require('express')
 var app = express();
@@ -9,124 +7,55 @@ var postgres_api = require('./postgres-api')
 var http = require('http')
 var path = require('path');
 var pg = require("pg")
+var sessions = require("client-sessions");
+var cors = require("3vot-cors");
+
 var pgConnect = require("./middleware/pg-connect")( { config: process.env.POSTGRES_URL  } )
 var pgobj = require('pg-objects')
+var SFLogin = require("3vot-salesforce-proxy").Login;
+var SFProxy = require("3vot-salesforce-proxy").Controller;
+var pgRoutes = require("./routes/pg")
+var generalRoutes = require("./routes/general")
+var googleRoutes = require("./routes/googleCSV")
+var AWS = require("aws-sdk")
+
+try{
+  AWS.config.loadFromPath('./aws_keys.json');
+}
+catch(e){
+  AWS.config.update( { accessKeyId: process.env.AWS_ACCESS_KEY, secretAccessKey: process.env.AWS_SECRET_KEY });  
+}
+
 
 // all environments
 app.set('port', process.env.PORT || 3002);
+
+app.use(sessions({
+  cookieName: 'session',
+  secret: 'blargadeeblargblarg',
+  duration: 2 * 60 * 60 * 1000, // how long the session will stay valid in ms
+  activeDuration: 1000 * 60 * 5 // if expiresIn < activeDuration, the session will be extended by activeDuration milliseconds
+}));
+
+app.use(cors.middleware( { origins: ["localhost:3000", "google.com","3vot.com", "nitrousbox.com" , ".com"] } ));
 app.use(express.logger('dev'));
 app.use(express.bodyParser());
+app.use(express.cookieParser('for whom the bells toll'));
 app.use(express.methodOverride());
 app.use(app.router);
 
-var options = { route: "/v1"}
+SFLogin(app, {route: "/v1/salesforce" });
+SFProxy(app, {route: "/v1/salesforce"});
 
-app.post( options.route + "/business/:operation", pgConnect ,function(req, res) {
-  var request = { "params": { "operation": req.params.operation }, "body": req.body  }
-  var query = "SELECT controller('BUSINESS_CONTROLLER', '" + JSON.stringify(request) + "');";
-  req.db.client.query( query ,
-    function(err, result) {
-      if(err) return res.send(500, err);
-      if(!result.rows || result.rows.length == 0) return res.send(500, "Unexpected Error, no response from Database")
-      if(result.rows[0].controller.success != true) return res.send(404, result.rows[0].controller )
-      res.send( result.rows[0].controller.response);
-    });
-});
+app.all('/v1/tokens/developerToken', generalRoutes.developerToken)
 
-app.get( options.route + "/:object/views/:named", pgConnect ,function(req, res, next) {
-  var request = { "params": { "object": req.params.object, "operation": req.params.named }, "body": req.query }
-  var query = "SELECT controller('SELECT_CONTROLLER', '" + JSON.stringify(request) + "');";
-  req.db.client.query( query ,
-    function(err, result) {
-      if(err) return res.send(500, err);
-      if(!result.rows || result.rows.length == 0) return res.send(500, "Unexpected Error, no response from Database")
-      if(result.rows[0].controller.success != true) return res.send(404, result.rows[0].controller )
-      res.send( result.rows[0].controller.response);
-    });
-});
+app.get('/v1/logins', generalRoutes.getLogins);
 
-app.post( options.route + "/:object/actions/:named", pgConnect ,function(req, res, next) {
-  var request = { "params": { "object": req.params.object, "operation": req.params.named }, "body": req.body }
-  var query = "SELECT controller('BUSINESS_CONTROLLER', '" + JSON.stringify(request) + "');";
-  req.db.client.query( query ,
-    function(err, result) {
-      if(err) return res.send(500, err);
-      if(!result.rows || result.rows.length == 0) return res.send(500, "Unexpected Error, no response from Database")
-      if(result.rows[0].controller.success != true) return res.send(404, result.rows[0].controller )
-      res.send( result.rows[0].controller.response);
-    });
-});
+app.post('/v1/login/:provider', generalRoutes.setLogin);
 
-app.get( options.route + "/:object/:id", pgConnect ,function(req, res) {
-  req.db.client.query( "select * from " + req.params.object + " where id = $1" , [ req.params.id ], function(err, result) {
-    if(err) return res.send(500, 'error running query ' + err);
-     res.send(result.row);
-   });
-});
+app.get("/v1/google/csv", googleRoutes )
 
-app.get( options.route + "/:object", pgConnect ,function(req, res) {
-  var request = { "params": { "object": req.params.object, "operation": "select" }, "body": req.query  }
-  var query = "SELECT controller('SELECT_CONTROLLER', '" + JSON.stringify(request) + "');";
-  req.db.client.query( query ,
-    function(err, result) {
-      if(err) return res.send(500, err);
-      if(!result.rows || result.rows.length == 0) return res.send(500, "Unexpected Error, no response from Database")
-      if(result.rows[0].controller.success != true) return res.send(404, result.rows[0].controller )
-      res.send( result.rows[0].controller.response);
-    });
-});
-
-app.post( options.route + "/:object", pgConnect ,function(req, res) {
-  var request = { "params": { "object": req.params.object, "operation": "create" }, "body": req.body  }
-  var query = "SELECT controller('REST_CONTROLLER', '" + JSON.stringify(request) + "');";
-  req.db.client.query( query ,
-    function(err, result) {
-      if(err) return res.send(500, err);
-      if(!result.rows || result.rows.length == 0) return res.send(500, "Unexpected Error, no response from Database")
-      if(result.rows[0].controller.success != true) return res.send(404, result.rows[0].controller )
-      res.send( result.rows[0].controller.response);
-    });
-});
-
-app.put( options.route + "/:object", pgConnect ,function(req, res) {
-  var request = { "params": { "object": req.params.object, "operation": "update" }, "body": req.body  }
-  var query = "SELECT controller('REST_CONTROLLER', '" + JSON.stringify(request) + "');";
-  req.db.client.query( query ,
-    function(err, result) {
-      if(err) return res.send(500, err);
-      if(!result.rows || result.rows.length == 0) return res.send(500, "Unexpected Error, no response from Database")
-      if(result.rows[0].controller.success != true) return res.send(404, result.rows[0].controller )
-      res.send( result.rows[0].controller.response);
-    });
-});
-
-app.delete( options.route + "/:object", pgConnect ,function(req, res) {
-  console.log(req.query)
-  var request = { "params": { "object": req.params.object, "operation": "delete" }, "body": req.query  }
-  var query = "SELECT controller('REST_CONTROLLER', '" + JSON.stringify(request) + "');";
-  req.db.client.query( query ,
-    function(err, result) {
-      if(err) return res.send(500, err);
-      if(!result.rows || result.rows.length == 0) return res.send(500,"Unexpected Error, no response from Database")
-      if(result.rows[0].controller.success != true) return res.send(404, result.rows[0].controller )
-      res.send( result.rows[0].controller.response);
-    });
-});
-
-
-function handleProxy(req,res,controller){
-  app.post( options.route + "/:object", pgConnect ,function(req, res) {
-    var request = { "params": { "object": req.params.object, "operation": "create" }, "body": req.body  }
-    var query = "SELECT controller(" + controller + ", '" + JSON.stringify(request) + "');";
-    req.db.client.query( query ,
-      function(err, result) {
-        if(err) return res.send(500, err);
-        if(!result.rows || result.rows.length == 0) return res.send(500, "Unexpected Error, no response from Database")
-        if(result.rows[0].controller.success != true) return res.send(result.rows[0].controller )
-        res.send( result.rows[0].controller.response);
-      });
-  });  
-}
+pgRoutes(app, { route: "/v1" } )
 
 // development only
 if ('development' == app.get('env')) {

@@ -2698,7 +2698,6 @@ module.exports = execute;
 var select;
 
 select = function(request) {
-  console.log(request);
   return plv8.__execute(request.select, request.values);
 };
 
@@ -2883,10 +2882,13 @@ module.exports = execute;
 var queryWithApps;
 
 queryWithApps = function(store) {
-  var app, appMap, appQuery, app_ids, apps, id, profileQuery, stores, _i, _j, _k, _l, _len, _len1, _len2, _len3, _len4, _m, _ref, _ref1;
-  profileQuery = "select * from stores where name = $1 and profile_id = $2";
-  stores = plv8.execute(profileQuery, [store.name, store.profile_id]);
+  var app, appMap, appQuery, app_ids, apps, id, profile, profileQuery, stores, _i, _j, _k, _l, _len, _len1, _len2, _len3, _len4, _m, _ref, _ref1;
+  profileQuery = "select id, user_name, marketing from profiles where user_name = $1";
+  profile = plv8.__executeRow(profileQuery, [store.user_name]);
+  profileQuery = "select * from stores where  profile_id = $1";
+  stores = plv8.__execute(profileQuery, [profile.id]);
   app_ids = [];
+  profile.stores = stores;
   for (_i = 0, _len = stores.length; _i < _len; _i++) {
     store = stores[_i];
     _ref = store.apps;
@@ -2913,7 +2915,7 @@ queryWithApps = function(store) {
       store.full_apps.push(appMap[app]);
     }
   }
-  return stores;
+  return profile;
 };
 
 module.exports = {

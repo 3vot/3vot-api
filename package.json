@@ -19,7 +19,15 @@
     "pg-objects": "0.0.2",
     "3vot-db": "0.0.1",
     "browserify": "~3.31.2",
-    "coffeeify": "~0.6.0"
+    "coffeeify": "~0.6.0",
+    "3vot-cors": "0.0.5",
+    "3vot-salesforce-proxy": "~0.1.6",
+    "client-sessions": "~0.6.0",
+    "aws-sdk": "~2.0.0-rc11",
+    "install": "~0.1.7",
+    "request": "~2.34.0",
+    "binary-csv": "~0.1.7",
+    "concat-stream": "~1.4.3"
   },
   "description": "ERROR: No README data found!",
   "main": "app.js",

@@ -21,10 +21,11 @@
   },
   "production": {
     "postgresql": {
-      "host": "localhost",
-      "database": "vot_api_prod",
-      "user": "vot_api_prod_user",
-      "password": "prod"
+      "host": "ec2-54-225-101-64.compute-1.amazonaws.com",
+      "port" : "5432",
+      "database": "d857pot2av54ph",
+      "user": "api_user",
+      "password": "3vot3vot"
     }
   }
 }
